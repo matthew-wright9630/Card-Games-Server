@@ -8,8 +8,8 @@
  *
  * See: https://docs.colyseus.io/server/api/#constructor-options
  */
-import { WarGame } from "./rooms/war"; // path to your room class
-import { Server } from "colyseus";
+import { WarGame } from "./rooms/war";
+import { Server, matchMaker } from "colyseus";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import express from "express";
 import cors from "cors";
@@ -20,16 +20,34 @@ const HOST = "0.0.0.0";
 
 const app = express();
 
-const allowedOrigins = process.env.NODE_ENV === "production"
-  ? ["https://mwcardgames.csproject.org"]
-  : ["http://localhost:5173"];
+const allowedOrigin =
+  process.env.NODE_ENV === "production"
+    ? "https://mwcardgames.csproject.org"
+    : "http://localhost:5173";
 
 app.use(
   cors({
-    origin: allowedOrigins,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    origin: allowedOrigin,
+    methods: ["GET", "POST", "OPTIONS"],
+    credentials: false,
   })
 );
+
+app.use(express.json());
+app.options("*", cors());
+
+app.post("/matchmake/joinOrCreate/:roomName", async (req, res) => {
+  try {
+    const { roomName } = req.params;
+    const room = await matchMaker.joinOrCreate(roomName, req.body);
+    res.json(room);
+  } catch (err) {
+    console.error("joinOrCreate failed:", err);
+    res.status(500).json({ error: "Failed to joinOrCreate" });
+  }
+});
+
+app.get("/", (_, res) => res.send("Colyseus + Express CORS ok"));
 
 const httpServer = createServer(app);
 
@@ -41,7 +59,6 @@ const gameServer = new Server({
 
 gameServer.define("war", WarGame);
 
-// start the server
-
-gameServer.listen(PORT);
-console.log(`Colyseus server listening on ws://${HOST}:${PORT}`);
+httpServer.listen(PORT, HOST, () => {
+  console.log(`Colyseus server listening on ws://${HOST}:${PORT}`);
+});
