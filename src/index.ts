@@ -43,11 +43,22 @@ app.post("/matchmake/joinOrCreate/:roomName", async (req, res) => {
     res.json(room);
   } catch (err) {
     console.error("joinOrCreate failed:", err);
-    res.status(500).json({ error: "Failed to joinOrCreate" });
+    res.status(500).json({ error: "Failed to joinOrCreate room" });
   }
 });
 
-app.get("/", (_, res) => res.send("Colyseus + Express CORS ok"));
+app.post("/matchmake/join/:roomName", async (req, res) => {
+  try {
+    const { roomName } = req.params;
+    const room = await matchMaker.join(roomName, req.body);
+    res.json(room);
+  } catch (err) {
+    console.error("join failed:", err);
+    res.status(500).json({ error: "Failed to join room" });
+  }
+});
+
+app.get("/", (_, res) => res.send("✅ Colyseus 0.16.5 with Express + CORS working"));
 
 const httpServer = createServer(app);
 
