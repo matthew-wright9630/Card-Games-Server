@@ -16,7 +16,7 @@ import cors from "cors";
 import { createServer } from "http";
 
 const PORT = 3001;
-const HOST = "127.0.0.1"; // Only listen internally
+const HOST = "0.0.0.0";
 
 const app = express();
 
@@ -26,7 +26,7 @@ const allowedOrigins = process.env.NODE_ENV === "production"
 
 app.use(
   cors({
-    origin: "https://mwcardgames.csproject.org",
+    origin: allowedOrigins,
     credentials: true, 
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   })
