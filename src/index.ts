@@ -11,26 +11,38 @@
 import { WarGame } from "./rooms/war"; // path to your room class
 import { Server } from "colyseus";
 import { WebSocketTransport } from "@colyseus/ws-transport";
-import express, {Express} from "express";
-import { createServer, Server as HTTPServer } from "http";
+import express from "express";
+import cors from "cors";
+import { createServer } from "http";
 
 const PORT = 3001;
-const HOST = "0.0.0.0"; 
+const HOST = "127.0.0.1"; // Only listen internally
 
-const app: Express = express();
+const app = express();
 
-const httpServer: HTTPServer = createServer(app);
+const allowedOrigins = process.env.NODE_ENV === "production"
+  ? ["https://mwcardgames.csproject.org"]
+  : ["http://localhost:5173"];
 
-const gameServer: Server = new Server({
+app.use(
+  cors({
+    origin: "https://mwcardgames.csproject.org",
+    credentials: true, 
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  })
+);
+
+const httpServer = createServer(app);
+
+const gameServer = new Server({
   transport: new WebSocketTransport({
     server: httpServer,
   }),
 });
 
-// define your Colyseus rooms
 gameServer.define("war", WarGame);
 
-// start listening
-httpServer.listen(PORT, HOST, () => {
-  console.log(`Colyseus server listening on ws://${HOST}:${PORT}`);
-});
+// start the server
+
+gameServer.listen(PORT);
+console.log(`Colyseus server listening on ws://${HOST}:${PORT}`);
