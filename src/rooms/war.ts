@@ -170,13 +170,17 @@ export class WarGame extends Room<WarState> {
       const drawnCard = player.cards.pop();
       this.state.currentBattle.push(drawnCard);
 
-      if (this.state.currentBattle.length === 2) {
-          this.resolveBattle();
-      }
+      // if (this.state.currentBattle.length === 2) {
+      //     this.resolveBattle();
+      // }
 
       this.broadcast("card_drawn", {card: drawnCard, deck: player.cards});
 
     });
+
+    this.onMessage("resolve_battle", async () => {
+      this.resolveBattle();
+    })
 
     this.onMessage("reshuffle_cards", async (client, data) => {
       const player = this.state.players.get(data.sessionId);
@@ -189,6 +193,15 @@ export class WarGame extends Room<WarState> {
       player.discard.splice(0, player.discard.length);
 
       this.broadcast("cards_reshuffled", {player: data.sessionId, drawPile: player.cards, discard: player.discard})
+    })
+
+    this.onMessage("forfeit_game", async(data) => {
+      const player = this.state.players.get(data.sessionId);
+
+      player.discard = new ArraySchema<Card>();
+      player.cards = new ArraySchema<Card>();
+
+      this.broadcast("forfeit", {player: data.sessionId})
     })
 
     this.onMessage("end_game", async (client, data) => {
