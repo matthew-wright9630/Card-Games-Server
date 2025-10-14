@@ -216,6 +216,10 @@ export class WarGame extends Room<WarState> {
       this.state.warPile.clear();
       this.broadcast("end_game");
     })
+
+    this.onMessage("leave_room", async () => {
+      this.broadcast("room_closed");
+    }) 
 }
 
   resolveBattle() {
