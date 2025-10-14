@@ -55,6 +55,10 @@ export class WarGame extends Room<WarState> {
       console.log(`Room created with password: ${this.roomPassword}`);
     }
 
+    if (this.state.players.size !== this.maxClients) {
+      this.broadcast("searching_for_players");
+    }
+
   });
   this.onMessage("create_deck", async (client, data) => {
       console.log("Received create_deck:", data);
@@ -310,9 +314,10 @@ export class WarGame extends Room<WarState> {
     }));
 
     this.broadcast("players_update", players);
-      if (this.state.players.size === this.maxClients) {
-        this.broadcast("game_ready");
-      }
+
+    if (this.state.players.size === this.maxClients) {
+      this.broadcast("game_ready");
+    }
   }
 
   isRoundOver(): boolean {
