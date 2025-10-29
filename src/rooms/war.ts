@@ -17,7 +17,7 @@ class WarState extends Schema {
   @type("string") currentTurn: string;
   @type("string") deck_id: string;
   @type("number") remaining: number = 0;
-  @type({map: Player}) players = new MapSchema<Player>();
+  @type({ map: Player }) players = new MapSchema<Player>();
   @type(["string"]) board: ArraySchema<string> = new ArraySchema<string>();
   @type([Card]) currentBattle = new ArraySchema<Card>();
   @type([Card]) warPile = new ArraySchema<Card>();
@@ -37,133 +37,127 @@ export class WarGame extends Room<WarState> {
   roomPassword?: string;
 
   readyPlayers = new Set();
-  
+
   // Called when the room is first created
   onCreate(options: any) {
-      console.log("WarGame room created");
-      
-      this.isSinglePlayer = options.isSinglePlayer === true;
-      this.onMessage("ready", (client) => {
+    console.log("WarGame room created");
+
+    this.isSinglePlayer = options.isSinglePlayer === true;
+    this.onMessage("ready", (client) => {
       this.readyPlayers.add(client.sessionId);
 
-    if (this.roomPassword) {
-      
-    }
+      if (this.roomPassword) {
+      }
 
-    if (options.password) {
-      this.roomPassword = options.password;
-      console.log(`Room created with password: ${this.roomPassword}`);
-    }
+      if (options.password) {
+        this.roomPassword = options.password;
+        console.log(`Room created with password: ${this.roomPassword}`);
+      }
 
-    if (this.state.players.size !== this.maxClients) {
-      this.broadcast("searching_for_players");
-    }
-
-  });
-  this.onMessage("create_deck", async (client, data) => {
+      if (this.state.players.size !== this.maxClients) {
+        this.broadcast("searching_for_players");
+      }
+    });
+    this.onMessage("create_deck", async (client, data) => {
       console.log("Received create_deck:", data);
       try {
-          const { deckCount } = data;
-          const deckData = await createNewDeck(deckCount);
-          
-          if (!deckData || !deckData.deck_id) {
-              throw new Error("Invalid deck data received from API");
-            }
-            
-            this.state.deck_id = deckData.deck_id;
-            this.state.remaining = deckData.remaining;
-            this.broadcast("deck_created", deckData);
-            console.log(`Deck created: ${deckData.deck_id}`);
-        } catch (err) {
-            console.error("Error in create_deck:", err);
+        const { deckCount } = data;
+        const deckData = await createNewDeck(deckCount);
+
+        if (!deckData || !deckData.deck_id) {
+          throw new Error("Invalid deck data received from API");
         }
+
+        this.state.deck_id = deckData.deck_id;
+        this.state.remaining = deckData.remaining;
+        this.broadcast("deck_created", deckData);
+        console.log(`Deck created: ${deckData.deck_id}`);
+      } catch (err) {
+        console.error("Error in create_deck:", err);
+      }
     });
-    
+
     this.onMessage("shuffle_deck", async (client, data) => {
-        console.log("Received shuffle_deck:", data);
-        
-        try {
-            if (!data.deck_id) throw new Error("Missing deck_id");
-            const deckData = await shuffleAllCards(data.deck_id);
-            
-            this.state.deck_id = deckData.deck_id;
-            this.state.remaining = deckData.remaining;
-      this.broadcast("deck_created", deckData);
-      console.log(`Deck shuffled: ${deckData.deck_id}`);
-    } catch (err) {
-      console.error("Error in shuffle_deck:", err);
-    }
-  });
-  
-  this.onMessage("deal_cards", async (client, data) => {
+      console.log("Received shuffle_deck:", data);
+
       try {
-          if (!data.deck_id) throw new Error("Missing deck_id");
-          const deck = await drawCard(data.deck_id, 52);
-          const cards = deck.cards;
-          
-          if (!cards || cards.length < 52) {
-              throw new Error("Failed to draw full deck");
-            }
+        if (!data.deck_id) throw new Error("Missing deck_id");
+        const deckData = await shuffleAllCards(data.deck_id);
 
-            const playerIds = Array.from(this.state.players.keys());
-            
-            if (playerIds.length < 2) {
-                console.warn("Not enough players to deal cards");
-                return;
-            }
+        this.state.deck_id = deckData.deck_id;
+        this.state.remaining = deckData.remaining;
+        this.broadcast("deck_created", deckData);
+        console.log(`Deck shuffled: ${deckData.deck_id}`);
+      } catch (err) {
+        console.error("Error in shuffle_deck:", err);
+      }
+    });
 
-            const player1Id = playerIds[0];
-            const player2Id = playerIds[1];
+    this.onMessage("deal_cards", async (client, data) => {
+      try {
+        if (!data.deck_id) throw new Error("Missing deck_id");
+        const deck = await drawCard(data.deck_id, 52);
+        const cards = deck.cards;
 
-            let cardNumber = 0;
-            
-            const schemaCards = cards.map((c) => {
-              const card = new Card();
-              card.code = c.code;
-              card.image = c.image;
-              card.suit = c.suit;
-              card.value = c.value;
-              if (cardNumber <26) {
-                card.owner=player1Id;
-              }
-              else {
-                card.owner=player2Id;
-              }
-              cardNumber++;
-              return card;
-            });
-            
-
-            
-            const half = Math.floor(schemaCards.length / 2);
-            const player1Cards = schemaCards.slice(0, half);
-            const player2Cards = schemaCards.slice(half);
-            
-            const player1 = this.state.players.get(player1Id);
-            const player2 = this.state.players.get(player2Id);
-            
-            player1.cards.clear();
-            player2.cards.clear();
-            
-            player1Cards.forEach(card => player1.cards.push(card));
-            player2Cards.forEach(card => player2.cards.push(card));
-            
-            this.state.status = "playing";
-            
-            this.broadcast("cards_dealt", {
-                player1: { sessionId: player1Id, cards: player1.cards },
-                player2: { sessionId: player2Id, cards: player2.cards },
-            });
-            
-        } catch (err) {
-            console.error("Error in deal_cards:", err);
+        if (!cards || cards.length < 52) {
+          throw new Error("Failed to draw full deck");
         }
+
+        const playerIds = Array.from(this.state.players.keys());
+
+        if (playerIds.length < 2) {
+          console.warn("Not enough players to deal cards");
+          return;
+        }
+
+        const player1Id = playerIds[0];
+        const player2Id = playerIds[1];
+
+        let cardNumber = 0;
+
+        const schemaCards = cards.map((c) => {
+          const card = new Card();
+          card.code = c.code;
+          card.image = c.image;
+          card.suit = c.suit;
+          card.value = c.value;
+          if (cardNumber < 26) {
+            card.owner = player1Id;
+          } else {
+            card.owner = player2Id;
+          }
+          cardNumber++;
+          return card;
+        });
+
+        const half = Math.floor(schemaCards.length / 2);
+        const player1Cards = schemaCards.slice(0, half);
+        const player2Cards = schemaCards.slice(half);
+
+        const player1 = this.state.players.get(player1Id);
+        const player2 = this.state.players.get(player2Id);
+
+        player1.cards.clear();
+        player2.cards.clear();
+
+        player1Cards.forEach((card) => player1.cards.push(card));
+        player2Cards.forEach((card) => player2.cards.push(card));
+
+        this.state.status = "playing";
+
+        this.broadcast("cards_dealt", {
+          player1: { sessionId: player1Id, cards: player1.cards },
+          player2: { sessionId: player2Id, cards: player2.cards },
+        });
+      } catch (err) {
+        console.error("Error in deal_cards:", err);
+      }
     });
 
     this.onMessage("draw_card", async (client, data) => {
       const player = this.state.players.get(data.sessionId);
 
-      if (!player) return;      
+      if (!player) return;
 
       if (player.cards.length === 0 && player.discard.length === 0) {
         console.warn(`${player.userName} has no cards left!`);
@@ -178,13 +172,12 @@ export class WarGame extends Room<WarState> {
       //     this.resolveBattle();
       // }
 
-      this.broadcast("card_drawn", {card: drawnCard, deck: player.cards});
-
+      this.broadcast("card_drawn", { card: drawnCard, deck: player.cards });
     });
 
     this.onMessage("resolve_battle", async () => {
       this.resolveBattle();
-    })
+    });
 
     this.onMessage("reshuffle_cards", async (client, data) => {
       const player = this.state.players.get(data.sessionId);
@@ -196,50 +189,60 @@ export class WarGame extends Room<WarState> {
 
       player.discard.splice(0, player.discard.length);
 
-      this.broadcast("cards_reshuffled", {player: data.sessionId, drawPile: player.cards, discard: player.discard})
-    })
+      this.broadcast("cards_reshuffled", {
+        player: data.sessionId,
+        drawPile: player.cards,
+        discard: player.discard,
+      });
+    });
 
-    this.onMessage("forfeit_game", async(data) => {
+    this.onMessage("forfeit_game", async (data) => {
       const player = this.state.players.get(data.sessionId);
 
       player.discard = new ArraySchema<Card>();
       player.cards = new ArraySchema<Card>();
 
-      this.broadcast("forfeit", {player: data.sessionId})
-    })
+      this.broadcast("forfeit", { player: data.sessionId });
+    });
 
     this.onMessage("end_game", async (client, data) => {
       this.state.players.forEach((player) => {
         player.discard.clear();
         player.cards.clear();
-      })
+      });
       this.state.warPile.clear();
       this.broadcast("end_game");
-    })
+    });
 
     this.onMessage("leave_room", async () => {
       this.broadcast("room_closed");
-    }) 
-}
+    });
+  }
 
   resolveBattle() {
     const [card1, card2] = this.state.currentBattle;
     if (!card1 || !card2) {
-        return;
+      return;
     }
 
     const winner = this.compareCards(card1, card2);
     if (winner === "tie") {
       this.state.warPile.push(card1, card2);
-      this.broadcast("battle_contested", {deck: this.state.warPile})
+      this.broadcast("battle_contested", { deck: this.state.warPile });
     } else {
-      const winningPlayer = this.state.players.get(winner)
+      const winningPlayer = this.state.players.get(winner);
       if (winningPlayer) {
-        if (this.state.warPile) {winningPlayer.discard.push(...this.state.warPile, card1, card2)}
-        else {winningPlayer.discard.push(card1, card2)};
+        if (this.state.warPile) {
+          winningPlayer.discard.push(...this.state.warPile, card1, card2);
+        } else {
+          winningPlayer.discard.push(card1, card2);
+        }
         this.state.warPile.splice(0, this.state.warPile.length);
       }
-      this.broadcast("battle_resolved", {winner: winner, deck: winningPlayer.discard});
+      this.broadcast("battle_resolved", {
+        winner: winner,
+        deck: winningPlayer.discard,
+      });
     }
     this.state.currentBattle.splice(0, this.state.currentBattle.length); // clear round
   }
@@ -249,14 +252,10 @@ export class WarGame extends Room<WarState> {
     const valueCard2 = getCardValue(card2.value);
 
     if (valueCard1 > valueCard2) {
-      return card1.owner
-
-    }
-    else if (valueCard1 < valueCard2) {
-      return card2.owner
-
-    }
-    else return "tie";
+      return card1.owner;
+    } else if (valueCard1 < valueCard2) {
+      return card2.owner;
+    } else return "tie";
   }
 
   async onAuth(client: Client, options: any) {
@@ -268,12 +267,13 @@ export class WarGame extends Room<WarState> {
     return true;
   }
 
-// Called when a player joins the room
+  // Called when a player joins the room
   onJoin(client: Client, options: any) {
-    console.log(options.userName)
+    console.log(options.userName);
 
     const player = new Player();
-    player.userName = options?.userName || `Player ${this.state.players.size + 1}`;
+    player.userName =
+      options?.userName || `Player ${this.state.players.size + 1}`;
     player.pileName = "";
     player.cards = new ArraySchema<Card>();
     player.discard = new ArraySchema<Card>();
@@ -281,17 +281,16 @@ export class WarGame extends Room<WarState> {
     this.state.players.set(client.sessionId, player);
 
     if (this.isSinglePlayer) {
-    const bot = new Player();
-    bot.userName = "Computer";
-    bot.cards = new ArraySchema<Card>();
-    bot.discard = new ArraySchema<Card>();
-    bot.pileName = "";  
-    this.state.players.set("bot", bot);
+      const bot = new Player();
+      bot.userName = "Computer";
+      bot.cards = new ArraySchema<Card>();
+      bot.discard = new ArraySchema<Card>();
+      bot.pileName = "";
+      this.state.players.set("bot", bot);
 
-    this.state.status = "playing";
-    this.startGame();
-    this.setTurnTimeout();
-
+      this.state.status = "playing";
+      this.startGame();
+      this.setTurnTimeout();
     }
 
     // Start automatically when enough players have joined
@@ -309,13 +308,15 @@ export class WarGame extends Room<WarState> {
   // Initialize or shuffle resources
   startGame() {
     this.state.board = new ArraySchema<string>();
-    
-    const players = Array.from(this.state.players.entries()).map(([id, player]) => ({
-      id,
-      userName: player.userName,
-      pileName: player.pileName,
-      cards: player.cards,
-    }));
+
+    const players = Array.from(this.state.players.entries()).map(
+      ([id, player]) => ({
+        id,
+        userName: player.userName,
+        pileName: player.pileName,
+        cards: player.cards,
+      })
+    );
 
     this.broadcast("players_update", players);
 
@@ -335,7 +336,10 @@ export class WarGame extends Room<WarState> {
   // Automatically trigger a move if the player takes too long
   setTurnTimeout() {
     if (this.turnTimeout) this.turnTimeout.clear();
-    this.turnTimeout = this.clock.setTimeout(() => this.autoAction(), TURN_TIMEOUT * 1000);
+    this.turnTimeout = this.clock.setTimeout(
+      () => this.autoAction(),
+      TURN_TIMEOUT * 1000
+    );
   }
 
   // Automatically perform an action for the current player (bot / timeout)
